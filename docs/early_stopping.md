@@ -11,7 +11,7 @@ checkpoint. The returned/saved model is the best observed validation model,
 including when training reaches its iteration limit before patience expires.
 Without `--auto-stop`, training returns its final model as before.
 
-Automatic stopping requires a nonempty validation dataset, positive patience
+Automatic stopping requires nonempty training and validation datasets, positive patience
 and iteration limit, and finite monitored loss. Errors must fail explicitly
 rather than disable monitoring or install an uninitialized checkpoint.
 
@@ -25,3 +25,10 @@ prediction results, and the public API. Fixtures are generated in temporary
 directories. Prefix comparisons include the same validation file to preserve
 the existing random traversal sequence. SSE and scalar configurations are
 checked separately using the existing build switches.
+
+Run both existing build configurations:
+
+```sh
+make clean all test
+make clean all test DFLAG= CXXFLAGS='-Wall -O2 -std=c++11'
+```

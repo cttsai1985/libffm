@@ -32,7 +32,7 @@ parser, CMake, or numerical-kernel feature is included.
 the checkpoint only inside the patience-exhaustion branch. It allocates backup
 weights even with stopping disabled. Library callers can silently lose requested
 monitoring when validation is absent/empty. `ffm-train.cpp` uses `atoi` for `-b`.
-These are source findings; actual RED results will be recorded in the issue/PR.
+These source findings were reproduced before production edits; RED/GREEN evidence is recorded below.
 
 The historical patience branch was checked before starting. Its feature is
 already present on master; merging that stale branch would revert widened weight
@@ -42,14 +42,14 @@ offsets. Start from current `origin/dev`, not that branch. Upstream master is
 
 ## Agile backlog and ordered commits
 
-- [ ] Design and tracking: publish this scope and explicit acceptance checks.
-- [ ] RED: add real-training regressions and a small direct-library test driver;
+- [x] Design and tracking: publish this scope and explicit acceptance checks.
+- [x] RED: add real-training regressions and a small direct-library test driver;
   run them on the original code before editing production behavior.
-- [ ] GREEN: repair checkpoint selection/restoration, guards, and `-b` handling;
+- [x] GREEN: repair checkpoint selection/restoration, guards, and `-b` handling;
   retain existing improving/worsening/default-patience behavior under tests.
-- [ ] Verification: add a focused `make test` gate and Linux CI for both existing
+- [x] Verification: add a focused `make test` gate and Linux CI for both existing
   SSE/OpenMP and scalar/serial build configurations.
-- [ ] Documentation: explain `-b`, ties, restoration at the iteration limit,
+- [x] Documentation: explain `-b`, ties, restoration at the iteration limit,
   validation requirements, and the test command.
 - [ ] Closeout: independently review/run the final patch, merge the ordered
   commits to `dev`, then promote `dev` to `master`, close the issue, and remove
@@ -104,3 +104,12 @@ CI must fail on regression. The patch is complete only after independent runtime
 verification, current-head CI, merge into `dev` and then `master`, issue closure,
 and worktree cleanup. Use pstack's behavior-first tests and real-artifact proof,
 with PUA's evidence and end-to-end closeout discipline.
+
+## Observed acceptance evidence
+
+- MEASURED RED on the original solver: 13 test methods, 23 failing subcases.
+- MEASURED GREEN after repair: all 13 test methods pass in SSE/OpenMP and
+  scalar/serial builds. The tests compare saved checkpoint bytes and actual
+  predictions, in addition to stopping epochs and explicit failures.
+- The independent review, hosted CI, promotion, and issue closeout are tracked
+  in the linked issue and pull requests; closeout is not claimed by this file.
