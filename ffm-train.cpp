@@ -76,8 +76,13 @@ Option parse_option(int argc, char **argv) {
             if(i == argc-1)
                 throw invalid_argument("need to specify number of iterations after -b");
             i++;
-            opt.param.nr_patience_iters = atoi(args[i].c_str());
-            if(opt.param.nr_patience_iters <= 0)
+            size_t parsed = 0;
+            try {
+                opt.param.nr_patience_iters = stoi(args[i], &parsed);
+            } catch(const logic_error&) {
+                throw invalid_argument("patience should be a positive integer in int range");
+            }
+            if(parsed != args[i].size() || opt.param.nr_patience_iters <= 0)
                 throw invalid_argument("number of iterations for patience should be greater than zero");
         } else if(args[i].compare("-k") == 0) {
             if(i == argc-1)
@@ -160,7 +165,7 @@ int main(int argc, char **argv) {
     try {
         opt = parse_option(argc, argv);
     } catch(invalid_argument &e) {
-        cout << e.what() << endl;
+        cerr << e.what() << endl;
         return 1;
     }
 
@@ -168,7 +173,7 @@ int main(int argc, char **argv) {
         cout.setstate(ios_base::badbit);
 
     if(opt.param.auto_stop && opt.va_path.empty()) {
-        cout << "To use auto-stop, you need to assign a validation set" << endl;
+        cerr << "To use auto-stop, you need to assign a validation set" << endl;
         return 1;
     }
 
@@ -176,7 +181,10 @@ int main(int argc, char **argv) {
     omp_set_num_threads(opt.nr_threads);
 #endif
 
-    train_on_disk(opt);
-
-    return 0;
+    try {
+        return train_on_disk(opt);
+    } catch(const exception &e) {
+        cerr << e.what() << endl;
+        return 1;
+    }
 }
