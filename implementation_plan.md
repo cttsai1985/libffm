@@ -69,11 +69,14 @@ runs, because the existing validation pass also consumes shuffle state.
 - Positive training labels and negative validation labels on the same feature
   pattern produce worsening validation loss. Compare the selected model bytes
   and predictions against the independently trained best prefix.
+- A nonmonotonic fixture checks patience reset on a new global best and that
+  an improvement over only the previous epoch still consumes patience.
 - An iteration cap shorter than patience must still restore the earlier best.
 - Improving validation, stopping disabled, and default patience characterize
   supported behavior. Verify actual models/predictions, not only log strings.
 - A small C++ driver calls the existing public library API to test invalid
-  patience/iteration counts, missing/empty validation, and nonfinite loss.
+  patience/iteration counts, empty training, missing/empty validation, and
+  nonfinite loss.
 - CLI tests cover `-b` boundaries, malformed integer tokens, help/default output,
   and useful surfaced errors. No external dataset downloads or test framework.
 
@@ -108,7 +111,8 @@ with PUA's evidence and end-to-end closeout discipline.
 ## Observed acceptance evidence
 
 - MEASURED RED on the original solver: 13 test methods, 23 failing subcases.
-- MEASURED GREEN after repair: all 13 test methods pass in SSE/OpenMP and
+- MEASURED GREEN after repair and review-driven regression additions: all 14
+  test methods pass in SSE/OpenMP and
   scalar/serial builds. The tests compare saved checkpoint bytes and actual
   predictions, in addition to stopping epochs and explicit failures.
 - The independent review, hosted CI, promotion, and issue closeout are tracked

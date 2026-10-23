@@ -57,10 +57,13 @@ class EarlyStoppingTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return result
 
-    def train_model(self, validation, iterations, auto_stop=False, patience=None):
+    def train_model(self, validation, iterations, auto_stop=False, patience=None,
+                    learning_rate=None):
         self.counter += 1
         model = self.directory / ("model-%d.bin" % self.counter)
         arguments = [TRAINER, "-s", "1", "-t", iterations, "-p", validation]
+        if learning_rate is not None:
+            arguments.extend(["-r", learning_rate])
         if auto_stop:
             arguments.append("--auto-stop")
         if patience is not None:
@@ -82,7 +85,7 @@ class EarlyStoppingTests(unittest.TestCase):
         output = self.directory / (model.name + ".predictions")
         self.successful([PREDICTOR, self.train, model, output])
         values = tuple(float(line) for line in output.read_text().splitlines())
-        self.assertEqual(len(values), 16)
+        self.assertEqual(len(values), len(self.train.read_text().splitlines()))
         self.assertTrue(all(math.isfinite(value) for value in values))
         return values
 
@@ -130,6 +133,34 @@ class EarlyStoppingTests(unittest.TestCase):
         self.assertEqual([row[0] for row in rows], list(range(1, 7)), log)
         self.assertTrue(all(left[2] > right[2] for left, right in zip(rows, rows[1:])), log)
         self.same_checkpoint(actual, final)
+
+    def test_nonmonotonic_validation_uses_global_best_and_resets_patience(self):
+        # A loss can improve on the previous epoch while still being worse than
+        # the best checkpoint. Later strict improvements must reset patience.
+        self.train = self.fixture("nonmonotonic-train.ffm", "\n".join((
+            "1 0:0:1 1:4:1", "-1 0:0:1 1:5:1", "-1 0:3:1 1:6:1",
+            "1 0:2:1 1:6:1", "1 0:3:1 1:7:1", "-1 0:2:1 1:4:1",
+            "-1 0:2:1 1:7:1", "1 0:0:1 1:7:1", "1 0:1:1 1:5:1",
+            "1 0:0:1 1:5:1", "1 0:2:1 1:5:1", "-1 0:1:1 1:4:1",
+        )) + "\n")
+        validation = self.fixture("nonmonotonic-valid.ffm", "\n".join((
+            "-1 0:3:1 1:6:1", "-1 0:2:1 1:5:1", "-1 0:2:1 1:7:1",
+        )) + "\n")
+        _, reference, log = self.train_model(validation, 8, learning_rate=1)
+        losses = [row[2] for row in reference]
+        # Pin the fixture's premises with wide margins, without relying on
+        # identical rounded losses across the two floating-point backends.
+        self.assertGreater(losses[1], losses[2], log)
+        self.assertGreater(losses[2], losses[0], log)
+        self.assertLess(losses[3], losses[0], log)
+        self.assertEqual(min(range(8), key=losses.__getitem__), 4, log)
+        for patience, best_epoch, stop_epoch in ((2, 1, 3), (3, 5, 8)):
+            with self.subTest(patience=patience):
+                best, _, _ = self.train_model(validation, best_epoch, learning_rate=1)
+                actual, rows, log = self.train_model(
+                    validation, 16, auto_stop=True, patience=patience, learning_rate=1)
+                self.assertEqual([row[0] for row in rows], list(range(1, stop_epoch + 1)), log)
+                self.same_checkpoint(actual, best)
 
     def test_disabled_stopping_returns_last_model_despite_worsening_validation(self):
         first, _, _ = self.train_model(self.worsening, 1)
@@ -195,6 +226,7 @@ class EarlyStoppingTests(unittest.TestCase):
         cases = (
             ("missing-validation", self.worsening),
             ("empty-validation", self.empty),
+            ("empty-training", self.worsening),
             ("patience-zero", self.worsening),
             ("patience-negative", self.worsening),
             ("iterations-zero", self.worsening),
@@ -204,7 +236,7 @@ class EarlyStoppingTests(unittest.TestCase):
         for mode, validation in cases:
             with self.subTest(mode=mode):
                 result = self.successful([
-                    API, mode, self.train, validation,
+                    API, mode, self.empty if mode == "empty-training" else self.train, validation,
                     self.directory / (mode + ".train.bin"),
                     self.directory / (mode + ".valid.bin"),
                 ])

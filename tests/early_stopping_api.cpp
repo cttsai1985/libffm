@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
     else if(mode == "iterations-negative")
         param.nr_iters = -1;
     else if(mode != "missing-validation" && mode != "empty-validation" &&
-            mode != "nonfinite-validation") {
+            mode != "nonfinite-validation" && mode != "empty-training") {
         std::cerr << "unknown mode: " << mode << "\n";
         return 2;
     }
