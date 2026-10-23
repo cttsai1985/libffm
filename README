@@ -93,6 +93,15 @@ stop at the iteration that reaches the best validation loss:
        8      0.42362      0.46999
     Auto-stop. Use model at 7th iteration.
 
+With `--auto-stop`, `-b` sets positive patience (default 1). Equal or higher validation losses
+consume patience; only a strictly lower loss resets it. Ties keep the earliest best model.
+The saved model is the best observed checkpoint, including when `-t` is reached before
+patience expires. Monitoring requires nonempty training and validation sets and finite
+validation loss. Without `--auto-stop`, the saved model remains the final iteration.
+
+Run the focused regression gate with `make test` (Python 3 required). See
+[docs/early_stopping.md](docs/early_stopping.md) for the contract and both build commands.
+
 
 Installation
 ============
@@ -162,6 +171,7 @@ Command Line Usage
     -l <lambda>: set regularization parameter (default 0.00002)
     -k <factor>: set number of latent factors (default 4)
     -t <iteration>: set number of iterations (default 15)
+    -b <patience>: iterations without a strictly lower validation loss (default 1)
     -r <eta>: set learning rate (default 0.2)
     -s <nr_threads>: set number of threads (default 1)
     -p <path>: set path to the validation set

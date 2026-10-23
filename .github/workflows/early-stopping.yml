@@ -1,0 +1,23 @@
+name: Early stopping
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.backend }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: SSE and OpenMP
+            command: make clean all test
+          - backend: Scalar and serial
+            command: make clean all test DFLAG= CXXFLAGS='-Wall -O2 -std=c++11'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Build and run focused regressions
+        run: ${{ matrix.command }}
