@@ -33,6 +33,7 @@ v: Value of each element in the problem
 #include <vector>
 #include <cassert>
 #include <numeric>
+#include <limits>
 
 #if defined USESSE
 #include <pmmintrin.h>
@@ -531,18 +532,27 @@ void ffm_read_problem_to_disk(string txt_path, string bin_path) {
 
 ffm_model ffm_train_on_disk(string tr_path, string va_path, ffm_parameter param) {
 
+    if(param.auto_stop && (param.nr_patience_iters <= 0 || param.nr_iters <= 0))
+        throw invalid_argument("automatic stopping requires positive patience and iterations");
+    if(param.auto_stop && va_path.empty())
+        throw invalid_argument("automatic stopping requires a validation set");
+
     problem_on_disk tr(tr_path);
     problem_on_disk va(va_path);
 
+    if(param.auto_stop && (tr.is_empty() || va.is_empty()))
+        throw invalid_argument("automatic stopping requires nonempty training and validation sets");
+
     ffm_model model = init_model(tr.meta.n, tr.meta.m, param);
 
-    bool auto_stop = param.auto_stop && !va_path.empty();
+    bool auto_stop = param.auto_stop;
     ffm_int patience = 0;
+    ffm_int best_iteration = 0;
 
     ffm_long w_size = get_w_size(model);
-    vector<ffm_float> prev_W(w_size, 0);
+    vector<ffm_float> prev_W;
     if(auto_stop)
-        prev_W.assign(w_size, 0);
+        prev_W.resize(w_size);
     ffm_double best_va_loss = numeric_limits<ffm_double>::max();
 
     cout.width(4);
@@ -623,23 +633,28 @@ ffm_model ffm_train_on_disk(string tr_path, string va_path, ffm_parameter param)
             cout << fixed << setprecision(5) << va_loss;
 
             if(auto_stop) {
-                if(va_loss > best_va_loss) {
-                    patience++;
-                    if (patience == param.nr_patience_iters) {
-                        memcpy(model.W, prev_W.data(), w_size*sizeof(ffm_float));
-                        cout << endl << "Auto-stop. Use model at " << (iter - patience) << "th iteration." << endl;
-                        break;
-                    }
-                } else {
+                if(!isfinite(va_loss))
+                    throw runtime_error("automatic stopping requires finite validation loss");
+                if(best_iteration == 0 || va_loss < best_va_loss) {
                     patience = 0;
                     memcpy(prev_W.data(), model.W, w_size*sizeof(ffm_float));
-                    best_va_loss = va_loss; 
+                    best_va_loss = va_loss;
+                    best_iteration = iter;
+                } else {
+                    patience++;
+                    if(patience >= param.nr_patience_iters) {
+                        cout << endl << "Auto-stop. Use model at " << best_iteration << "th iteration." << endl;
+                        break;
+                    }
                 }
             }
         }
         cout.width(13);
         cout << fixed << setprecision(1) << timer.get() << endl;
     }
+
+    if(auto_stop)
+        memcpy(model.W, prev_W.data(), w_size*sizeof(ffm_float));
 
     return model;
 }
